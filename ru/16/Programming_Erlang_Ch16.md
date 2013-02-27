@@ -71,38 +71,25 @@ server1**, **server2**….**, каждый слегка будет отлича�
 Первая попытка. Это маленький сервер, который мы реализуем, написав
 модуль обратных вызовов.
 
-**-module**(server1).
+    -module(server1).
+    -export([start/2, rpc/2]).
 
-**-export**([start/2, rpc/2]).
+    start(Name, Mod) ->
+        register(Name, spawn(fun() -> loop(Name, Mod, Mod:init()) end)).
 
-start(Name, Mod) ->
+    rpc(Name, Request) ->
+        Name ! {self(), Request},
+        receive
+            {Name, Response} -> Response
+        end.
 
-register(Name, spawn(**fun**() -> loop(Name, Mod, Mod:init())
-**end**)).
-
-rpc(Name, Request) ->
-
-Name ! {self(), Request},
-
-**receive**
-
-{Name, Response} -> Response
-
-**end**.
-
-loop(Name, Mod, State) ->
-
-**receive**
-
-{From, Request} ->
-
-{Response, State1} = Mod:handle(Request, State),
-
-From ! {Name, Response},
-
-loop(Name, Mod, State1)
-
-**end**.
+    loop(Name, Mod, State) ->
+        receive
+            {From, Request} ->
+                {Response, State1} = Mod:handle(Request, State),
+                From ! {Name, Response},
+                loop(Name, Mod, State1)
+        end.
 
 Это очень небольшое количество кода является основой сервера. Давайте
 напишем обратные вызовы для сервера №1. Вот код модуля обратных вызовов:
