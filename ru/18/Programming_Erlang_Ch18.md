@@ -147,95 +147,52 @@ API обработчика событий следующий:
 
 Теперь создадим обработчик и сгенерируем ошибку:
 
+    1> event_handler:make(errors).
+        true
 
-
-1> event_handler:make(errors).
-
-true
-
-2> event_handler:event(errors, hi).
-
-{event,hi}
-
-
+    2> event_handler:event(errors, hi).
+        {event,hi}
 
 Ничего особенного не произойдет, потому что мы не подключили модуль
 обратных вызовов к этому обработчику.
-
-
 
 Чтобы получить обработчик событий, который делает что-нибудь
 осмысленное, необходимо написать для него модуль обратных вызовов и
 подключить этот модуль к обработчику:
 
+    %% http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl
+    -module(motor_controller).
 
+    -export([add_event_handler/0]).
 
-HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"ЗагрузитьHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"
-HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"motorHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"_HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"controllerHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl".HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/motor_controller.erl"erl
+    add_event_handler() ->
+        event_handler:add_handler(errors, fun controller/1).
 
--module(motor_controller).
-
-
-
--export([add_event_handler/0]).
-
-
-
-add_event_handler() ->
-
-event_handler:add_handler(errors, fun controller/1).
-
-
-
-controller(too_hot) ->
-
-io:format("Turn off the motor\~n" );
-
-controller(X) ->
-
-io:format("\~w ignored event: \~p\~n" ,[?MODULE, X]).
-
-
+    controller(too_hot) ->
+        io:format("Turn off the motor~n");
+    controller(X) ->
+        io:format("~w ignored event: ~p~n",[?MODULE, X]).
 
 Скомпилируем этот код и подключим к обработчику:
 
+    3> c(motor_controller).
+    {ok,motor_controller}
 
-
-3> c(motor_controller).
-
-{ok,motor_controller}
-
-4> motor_controller:add_event_handler().
-
-{add,\#Fun<motor_controller.0.99476749>}
-
-
+    4> motor_controller:add_event_handler().
+    {add,\#Fun<motor_controller.0.99476749>}
 
 Теперь, когда события будут отправлены обработчику, они будут обработаны
 функцией motor_controller:controller/1:
 
+    5> event_handler:event(errors, cool).
+    motor_controller ignored event: cool
 
+    {event,cool}
 
-5> event_handler:event(errors, cool).
+    6> event_handler:event(errors, too_hot).
+    Turn off the motor
 
-motor_controller ignored event: cool
-
-{event,cool}
-
-6> event_handler:event(errors, too_hot).
-
-Turn off the motor
-
-{event,too_hot}
-
-
+    {event,too_hot}
 
 И в чём же смысл проделанной работы? Во первых, мы задали имя, на
 которое будут отправляться события. В данном случае, это
@@ -250,24 +207,10 @@ Turn off the motor
 Предположим, что мы пишем функцию, которая скрывает конструкцию
 event_handler:event от программиста. Например, мы пишем следующее:
 
+    %% http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl
 
-
-HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl"ЗагрузитьHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl" HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl"libHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl"_HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl"miscHYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl".HYPERLINK
-"http://media.pragprog.com/titles/jaerlang/code/lib_misc.erl"erl
-
-
-
-too_hot() ->
-
-event_handler:event(errors, too_hot).
-
-
+    too_hot() ->
+        event_handler:event(errors, too_hot).
 
 В этом случае мы говорим программисту вызывать lib_misc:too_hot() в
 своем коде, когда дела пойдут плохо. В большинстве языков
@@ -277,32 +220,22 @@ event_handler:event(errors, too_hot).
 изменится наше понимание и мы решим изменить что-нибудь, то это будет не
 простой путь изменения нашей системы.
 
-
-
 Подход Эрланга к обработке событий абсолютно другой. Он позволяет
 отделить генерирацию событий от обработки событий. Мы можем изменить
 обработку в любое время, просто передав новую функцию обработки в
 обработчик событий. Ничего не линкуется статически, и каждый обработчик
 может быть изменен тогда, когда вам это потребуется.
 
-
-
 Используя такой механизм, мы можем построить систему *меняющуюся со
 временем* и не требующую остановки для замены кода.
 
-
-
 *Примечание: *Это не "позднее связывание" - это "ОЧЕНЬ позднее
 связывание, дающее возможность думать так или иначе".
-
-
 
 Возможно, вы немного запутались. Почему мы говорим об обработчиках
 событий? Ключевой момент повествования в том, что обработчик событий
 предоставляет нам инфраструктуру, в которую мы можем внедрять свои
 обработчики.
-
-
 
 Инфраструктура регистратора ошибок строится из шаблона обработчика
 событий. Мы можем устанавливать различные обработчики в регистраторе
@@ -310,9 +243,8 @@ event_handler:event(errors, too_hot).
 
 
 
-**18.2 Регистратор ошибок**
+### 18.2 Регистратор ошибок
 
-****
 
 Система OTP строится на настраиваемых регистраторах ошибок. Регистратор
 ошибок можно рассматривать с трех точек зрения. С точки зрения
@@ -321,11 +253,7 @@ event_handler:event(errors, too_hot).
 данные. Точка зрения *отчетов* - это анализ ошибок после того как они
 случились. Мы рассмотрим каждую из точек зрения.
 
-
-
-Журналирование/Протоколирование ошибок
-
-
+* Журналирование/Протоколирование ошибок
 
 Что касается программиста, API регистратора ошибок достаточно прост. Вот
 он:
